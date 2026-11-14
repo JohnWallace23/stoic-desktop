@@ -24,17 +24,50 @@ from PyQt6.QtWidgets import QApplication, QGraphicsDropShadowEffect, QLabel, QMe
 QUOTE_MINUTES = 1             # a new quote this often
 WALLPAPER_HOURS = 24          # a new wallpaper this often (checked hourly, so restarts don't skip or repeat it)
 WALLPAPER_DIM = 70            # 0-255: how much darker the art is made, so the quote stays readable
-SUBREDDITS = ["Sculpture", "ClassicalArt", "ArtPorn", "EarthPorn", "museum", "ArtefactPorn"]
+# Epic fantasy art (warriors, battles, castles, landscapes) and classical art and sculpture.
+SUBREDDITS = ["ImaginaryWarriors", "ImaginaryBattlefields", "ImaginaryKnights", "ImaginaryCastles",
+              "ClassicalArt", "Sculpture"]
 
 APP_NAME = "Stoic Desktop"
-USER_AGENT = "windows:stoic-desktop:1.1 (desktop wallpaper widget)"
+USER_AGENT = "windows:stoic-desktop:1.2 (desktop wallpaper widget)"
 TEMP_DIR = Path(os.environ.get("TEMP") or Path.home())
 WP_A = TEMP_DIR / "stoic_wallpaper_A.jpg"   # two files, used in turn, so Windows always sees a new path
 WP_B = TEMP_DIR / "stoic_wallpaper_B.jpg"
 MAX_DOWNLOAD = 40 * 1024 * 1024               # never read more than 40 MB from the internet
 # Images are only ever downloaded over HTTPS from these hosts.
-ALLOWED_HOSTS = {"www.reddit.com", "i.redd.it", "openaccess-api.clevelandart.org", "openaccess-cdn.clevelandart.org",
+ALLOWED_HOSTS = {"www.reddit.com", "i.redd.it", "commons.wikimedia.org", "upload.wikimedia.org", "thumb.wikimedia.org",
+                 "openaccess-api.clevelandart.org", "openaccess-cdn.clevelandart.org",
                  "picsum.photos", "fastly.picsum.photos"}
+COMMONS_API = "https://commons.wikimedia.org/w/api.php"
+
+# Public-domain masterpieces about courage, struggle and endurance, from Wikimedia Commons:
+# (title, artist, file name on Commons). Every one is checked to exist at a good size.
+MASTERPIECES = [
+    ("Wanderer above the Sea of Fog", "Caspar David Friedrich", "Caspar David Friedrich - Wanderer above the sea of fog.jpg"),
+    ("Napoleon Crossing the Alps", "Jacques-Louis David", "David - Napoleon crossing the Alps - Malmaison1.jpg"),
+    ("Leonidas at Thermopylae", "Jacques-Louis David", "Jacques-Louis David - Leonidas at Thermopylae - WGA6095.jpg"),
+    ("The Death of Socrates", "Jacques-Louis David", "David - The Death of Socrates.jpg"),
+    ("The Oath of the Horatii", "Jacques-Louis David", "Jacques-Louis David, Le Serment des Horaces.jpg"),
+    ("The Course of Empire: Destruction", "Thomas Cole", "Cole Thomas The Course of Empire Destruction 1836.jpg"),
+    ("Washington Crossing the Delaware", "Emanuel Leutze", "Washington Crossing the Delaware by Emanuel Leutze, MMA-NYC, 1851.jpg"),
+    ("Liberty Leading the People", "Eugène Delacroix", "Eugène Delacroix - La liberté guidant le peuple.jpg"),
+    ("The Raft of the Medusa", "Théodore Géricault",
+     "JEAN LOUIS THÉODORE GÉRICAULT - La Balsa de la Medusa (Museo del Louvre, 1818-19).jpg"),
+    ("The Fighting Temeraire", "J. M. W. Turner", "The Fighting Temeraire, JMW Turner, National Gallery.jpg"),
+    ("Pollice Verso", "Jean-Léon Gérôme", "Jean-Leon Gerome Pollice Verso.jpg"),
+    ("The Ninth Wave", "Ivan Aivazovsky", "Hovhannes Aivazovsky - The Ninth Wave - Google Art Project.jpg"),
+    ("The Sea of Ice", "Caspar David Friedrich", "Caspar David Friedrich - Das Eismeer - Hamburger Kunsthalle - 02.jpg"),
+    ("The Monk by the Sea", "Caspar David Friedrich", "Caspar David Friedrich - Der Mönch am Meer - Google Art Project.jpg"),
+    ("The School of Athens", "Raphael", "\"The School of Athens\" by Raffaello Sanzio da Urbino.jpg"),
+    ("The Night Watch", "Rembrandt", "The Night Watch - HD.jpg"),
+    ("Among the Sierra Nevada", "Albert Bierstadt", "Albert Bierstadt - Among the Sierra Nevada, California - Google Art Project.jpg"),
+    ("The Great Day of His Wrath", "John Martin", "John Martin - The Great Day of His Wrath - Google Art Project.jpg"),
+    ("The Battle of Alexander at Issus", "Albrecht Altdorfer",
+     "Albrecht Altdorfer - Schlacht bei Issus (Alte Pinakothek, München) - Google Art Project.jpg"),
+    ("Laocoön and His Sons", "Vatican Museums", "Laocoon Pio-Clementino Inv1059-1064-1067.jpg"),
+    ("Winged Victory of Samothrace", "The Louvre", "Nike of Samothrake Louvre Ma2369 n4.jpg"),
+    ("The Dying Gaul", "Capitoline Museums", "Dying gaul.jpg"),
+]
 STARTUP_LINK = (Path(os.environ.get("APPDATA") or Path.home()) / "Microsoft" / "Windows" / "Start Menu" / "Programs"
                 / "Startup" / f"{APP_NAME}.lnk")
 
@@ -104,7 +137,7 @@ STOIC_QUOTES = [
     ("Whatever happens at all happens as it should.", "Marcus Aurelius"),
     # --- SENECA ---
     ("We suffer more often in imagination than in reality.", "Seneca"),
-    ("Luck is what happens when preparation meets opportunity.", "Seneca"),
+    ("Luck is what happens when preparation meets opportunity.", "Often credited to Seneca"),
     ("Sometimes even to live is an act of courage.", "Seneca"),
     ("If a man knows not to which port he sails, no wind is favorable.", "Seneca"),
     ("Difficulties strengthen the mind, as labor does the body.", "Seneca"),
@@ -139,7 +172,7 @@ STOIC_QUOTES = [
      "Epictetus"),
     ("No man is free who is not master of himself.", "Epictetus"),
     ("Men are disturbed not by things, but by the views which they take of them.", "Epictetus"),
-    ("We have two ears and one mouth so that we can listen twice as much as we speak.", "Epictetus"),
+    ("We have two ears and one mouth so that we can listen twice as much as we speak.", "Zeno of Citium"),
     ("Only the educated are free.", "Epictetus"),
     ("Make the best use of what is in your power, and take the rest as it happens.", "Epictetus"),
     ("If you want to improve, be content to be thought foolish and stupid.", "Epictetus"),
@@ -162,10 +195,11 @@ STOIC_QUOTES = [
     ("Ego is the enemy.", "Ryan Holiday"),
     ("Stillness is the key.", "Ryan Holiday"),
     ("Do not pray for an easy life, pray for the strength to endure a difficult one.", "Bruce Lee"),
-    ("Success is not final, failure is not fatal: It is the courage to continue that counts.", "Winston Churchill"),
-    ("Knowing yourself is the beginning of all wisdom.", "Aristotle"),
+    ("Success is not final, failure is not fatal: it is the courage to continue that counts.",
+     "Often credited to Winston Churchill"),
+    ("Know thyself.", "Inscribed at the Temple of Apollo, Delphi"),
     ("The first and greatest victory is to conquer yourself.", "Plato"),
-    ("Discipline is choosing between what you want now and what you want most.", "Abraham Lincoln"),
+    ("Discipline is choosing between what you want now and what you want most.", "Often credited to Abraham Lincoln"),
     ("Pain is inevitable. Suffering is optional.", "Haruki Murakami"),
 ]
 
@@ -213,6 +247,21 @@ def museum_image():
     return url, str(art.get("title") or "the Cleveland Museum of Art")
 
 
+def masterpiece(avoid=()):
+    """A masterpiece (not one of `avoid`, the titles shown lately): (image address, title, artist)."""
+    choices = [m for m in MASTERPIECES if m[0] not in avoid] or MASTERPIECES
+    title, artist, file = random.choice(choices)  # nosec B311
+    query = urllib.parse.urlencode({"action": "query", "titles": "File:" + file, "prop": "imageinfo",
+                                    "iiprop": "url", "iiurlwidth": 2560, "format": "json"})
+    data = json.loads(fetch(f"{COMMONS_API}?{query}", limit=1024 * 1024))
+    page = next(iter((data.get("query") or {}).get("pages", {}).values()), {})
+    info = (page.get("imageinfo") or [{}])[0]
+    url = info.get("thumburl") or info.get("url")
+    if not url:
+        raise ValueError("not on Wikimedia Commons")
+    return url, title, artist
+
+
 def load_image(data):
     image = QImage()
     image.loadFromData(data)
@@ -221,13 +270,42 @@ def load_image(data):
     return image
 
 
-def save_dark_grayscale(image, path):
-    """Grayscale, then darkened a little so the quote stays readable over it."""
-    out = image.convertToFormat(QImage.Format.Format_Grayscale8).convertToFormat(QImage.Format.Format_RGB32)
+def compose(image, width, height):
+    """The art in grayscale at exactly the screen's size, darkened so the quote stays readable. A picture
+    near the screen's shape fills it; a tall or very wide one is shown whole, over a dark, blurred copy
+    of itself, instead of being cropped."""
+    gray = image.convertToFormat(QImage.Format.Format_Grayscale8).convertToFormat(QImage.Format.Format_RGB32)
+    out = QImage(width, height, QImage.Format.Format_RGB32)
+    out.fill(QColor(0, 0, 0))
+    smooth, keep = Qt.TransformationMode.SmoothTransformation, Qt.AspectRatioMode
     painter = QPainter(out)
-    painter.fillRect(out.rect(), QColor(0, 0, 0, WALLPAPER_DIM))
+    painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+
+    def centred(img):
+        painter.drawImage((width - img.width()) // 2, (height - img.height()) // 2, img)
+
+    shape, screen = gray.width() / gray.height(), width / height
+    if abs(shape - screen) / screen <= 0.2:
+        centred(gray.scaled(width, height, keep.KeepAspectRatioByExpanding, smooth))
+    else:
+        tiny = gray.scaled(max(1, width // 32), max(1, height // 32), keep.KeepAspectRatioByExpanding, smooth)
+        centred(tiny.scaled(width, height, keep.KeepAspectRatioByExpanding, smooth))   # blurred
+        painter.fillRect(out.rect(), QColor(0, 0, 0, 150))
+        centred(gray.scaled(int(width * 0.96), int(height * 0.96), keep.KeepAspectRatio, smooth))
     painter.end()
-    if not out.save(str(path), "JPG", 92):
+    # Darken: at least WALLPAPER_DIM, and more for a bright picture, so the white quote always reads on it.
+    sample = out.scaled(32, 18, Qt.AspectRatioMode.IgnoreAspectRatio, smooth)
+    mean = sum(sample.pixelColor(x, y).red() for x in range(32) for y in range(18)) / (32 * 18)
+    target = 80   # the most the finished wallpaper's average brightness (0-255) should be
+    dim = WALLPAPER_DIM if mean <= target else max(WALLPAPER_DIM, round(255 * (1 - target / mean)))
+    painter = QPainter(out)
+    painter.fillRect(out.rect(), QColor(0, 0, 0, min(dim, 200)))
+    painter.end()
+    return out
+
+
+def save_wallpaper(image, path, size):
+    if not compose(image, *size).save(str(path), "JPG", 92):
         raise OSError("couldn't save the wallpaper")
 
 
@@ -266,14 +344,18 @@ class Notification(QWidget):
         self.label = QLabel(message)
         self.label.setStyleSheet("background-color: rgba(20,20,20,230); color: white; border: 1px solid #555; "
                                  "border-radius: 8px; padding: 12px; font-family: 'Segoe UI';")
+        self.label.setWordWrap(True)
         layout.addWidget(self.label)
         self.setLayout(layout)
-        screen = QApplication.primaryScreen().availableGeometry()
-        self.setGeometry(screen.right() - 330, screen.top() + 40, 300, 70)
+        self.setFixedWidth(340)
+        self.update_status(message)
         self.show()
 
     def update_status(self, text, delay=0):
         self.label.setText(text)
+        self.adjustSize()
+        screen = QApplication.primaryScreen().availableGeometry()
+        self.move(screen.right() - self.width() - 20, screen.top() + 40)
         if delay > 0:
             QTimer.singleShot(delay, self.close)
 
@@ -285,43 +367,56 @@ class WallpaperWorker(QThread):
     def __init__(self):
         super().__init__()
         self.toggle = True
+        self.size = (1920, 1080)   # the screen, in real pixels: set before each run
+
+    def from_reddit(self, target):
+        sub = random.choice(SUBREDDITS)  # nosec B311
+        self.status_signal.emit(f"Scanning r/{sub}...", 0)
+        images = reddit_images(sub)
+        random.shuffle(images)
+        for url in images[:4]:
+            try:
+                save_wallpaper(load_image(fetch(url)), target, self.size)
+                return f"🔥 New art from r/{sub}!"
+            # That picture failed: try the next one.
+            except Exception:  # nosec B112
+                continue
+        raise ValueError("no usable picture")
+
+    def from_masterpieces(self, target):
+        self.status_signal.emit("Choosing a masterpiece...", 0)
+        settings = QSettings("StoicDesktop", "StoicDesktop")
+        recent = settings.value("recent_art") or []
+        recent = [recent] if isinstance(recent, str) else list(recent)
+        url, title, artist = masterpiece(avoid=recent)
+        save_wallpaper(load_image(fetch(url)), target, self.size)
+        settings.setValue("recent_art", (recent + [title])[-10:])   # not again for the next 10
+        return f"🏛️ {title}, {artist}"
+
+    def from_museum(self, target):
+        url, title = museum_image()
+        save_wallpaper(load_image(fetch(url)), target, self.size)
+        return f"🏛️ New art: {title[:60]}"
+
+    def from_photo(self, target):
+        save_wallpaper(load_image(fetch("https://picsum.photos/1920/1080?grayscale")), target, self.size)
+        return "🛡️ Fallback engaged."
 
     def run(self):
         target = WP_A if self.toggle else WP_B
         self.toggle = not self.toggle
-        # Picking art, not security.
-        sub = random.choice(SUBREDDITS)  # nosec B311
-        self.status_signal.emit(f"Scanning r/{sub}...", 0)
-        try:   # 1. Reddit
-            images = reddit_images(sub)
-            random.shuffle(images)
-            for url in images[:4]:
-                try:
-                    save_dark_grayscale(load_image(fetch(url)), target)
-                    self.status_signal.emit(f"🔥 SUCCESS: New art from r/{sub}!", 4000)
-                    self.finished.emit(str(target))
-                    return
-                # That picture failed: try the next one.
-                except Exception:  # nosec B112
-                    continue
-        # Reddit failed: fall back to the museum.
-        except Exception:  # nosec B110
-            pass
-        try:   # 2. a museum's public-domain collection
-            url, title = museum_image()
-            save_dark_grayscale(load_image(fetch(url)), target)
-            self.status_signal.emit(f"🏛️ New art: {title[:60]}", 4000)
+        first = [self.from_masterpieces, self.from_reddit]
+        random.shuffle(first)
+        for source in first + [self.from_museum, self.from_photo]:
+            try:
+                message = source(target)
+            # That source failed: the next one.
+            except Exception:  # nosec B112
+                continue
+            self.status_signal.emit(message, 5000)
             self.finished.emit(str(target))
             return
-        # The museum failed: fall back to a photo.
-        except Exception:  # nosec B110
-            pass
-        try:   # 3. a moody photo
-            save_dark_grayscale(load_image(fetch("https://picsum.photos/1920/1080?grayscale")), target)
-            self.status_signal.emit("🛡️ Fallback engaged.", 4000)
-            self.finished.emit(str(target))
-        except Exception:
-            self.status_signal.emit("❌ Update failed. Trying again later.", 4000)
+        self.status_signal.emit("❌ Update failed. Trying again later.", 4000)
 
 
 class StoicDesktop(QWidget):
@@ -444,6 +539,9 @@ class StoicDesktop(QWidget):
 
     def refresh_wallpaper(self):
         if not self.worker.isRunning():
+            screen = QApplication.primaryScreen()
+            size, ratio = screen.size(), screen.devicePixelRatio()
+            self.worker.size = (max(800, round(size.width() * ratio)), max(600, round(size.height() * ratio)))
             self.worker.start()
 
     def apply_wp(self, path):
