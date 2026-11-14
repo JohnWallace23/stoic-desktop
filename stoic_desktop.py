@@ -4,6 +4,7 @@ dark grayscale classical-art wallpaper every day.
 Right-click the quote for the menu. Drag it with the left mouse button to move it.
 """
 import ctypes
+import gc
 import json
 import os
 import random
@@ -16,8 +17,8 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from PyQt6.QtCore import QPoint, QSettings, Qt, QThread, QTimer, pyqtSignal
-from PyQt6.QtGui import QAction, QColor, QFont, QImage, QPainter
+from PyQt6.QtCore import QBuffer, QByteArray, QIODevice, QPoint, QSettings, QSize, Qt, QThread, QTimer, pyqtSignal
+from PyQt6.QtGui import QAction, QColor, QFont, QImage, QImageReader, QPainter
 from PyQt6.QtWidgets import QApplication, QGraphicsDropShadowEffect, QLabel, QMenu, QVBoxLayout, QWidget
 
 # --- Settings you can change ---
@@ -34,6 +35,8 @@ TEMP_DIR = Path(os.environ.get("TEMP") or Path.home())
 WP_A = TEMP_DIR / "stoic_wallpaper_A.jpg"   # two files, used in turn, so Windows always sees a new path
 WP_B = TEMP_DIR / "stoic_wallpaper_B.jpg"
 MAX_DOWNLOAD = 40 * 1024 * 1024               # never read more than 40 MB from the internet
+MAX_PIXELS = 100_000_000                      # and never decode a picture bigger than 100 megapixels
+THUMB_WIDTHS = (1280, 1920, 2560, 3840)       # Wikimedia's standard copy sizes
 # Images are only ever downloaded over HTTPS from these hosts.
 ALLOWED_HOSTS = {"www.reddit.com", "i.redd.it", "commons.wikimedia.org", "upload.wikimedia.org", "thumb.wikimedia.org",
                  "openaccess-api.clevelandart.org", "openaccess-cdn.clevelandart.org",
@@ -247,12 +250,14 @@ def museum_image():
     return url, str(art.get("title") or "the Cleveland Museum of Art")
 
 
-def masterpiece(avoid=()):
-    """A masterpiece (not one of `avoid`, the titles shown lately): (image address, title, artist)."""
+def masterpiece(avoid=(), screen_width=1920):
+    """A masterpiece (not one of `avoid`, the titles shown lately): (image address, title, artist), in
+    the smallest copy Wikimedia has that's still as wide as the screen."""
     choices = [m for m in MASTERPIECES if m[0] not in avoid] or MASTERPIECES
     title, artist, file = random.choice(choices)  # nosec B311
     query = urllib.parse.urlencode({"action": "query", "titles": "File:" + file, "prop": "imageinfo",
-                                    "iiprop": "url", "iiurlwidth": 2560, "format": "json"})
+                                    "iiprop": "url", "format": "json",
+                                    "iiurlwidth": next((w for w in THUMB_WIDTHS if w >= screen_width), THUMB_WIDTHS[-1])})
     data = json.loads(fetch(f"{COMMONS_API}?{query}", limit=1024 * 1024))
     page = next(iter((data.get("query") or {}).get("pages", {}).values()), {})
     info = (page.get("imageinfo") or [{}])[0]
@@ -262,10 +267,25 @@ def masterpiece(avoid=()):
     return url, title, artist
 
 
-def load_image(data):
-    image = QImage()
-    image.loadFromData(data)
-    if image.isNull() or image.width() < 800 or image.height() < 500:
+def load_image(data, size=(1920, 1080)):
+    """The picture, decoded straight at the size the screen needs (never bigger), which takes a fraction
+    of the memory and time of decoding a huge one in full. Refuses broken, tiny or enormous pictures."""
+    buffer = QBuffer()
+    buffer.setData(QByteArray(data))
+    buffer.open(QIODevice.OpenModeFlag.ReadOnly)
+    reader = QImageReader(buffer)
+    reader.setAutoTransform(True)
+    full = reader.size()
+    if not full.isValid() or full.width() < 800 or full.height() < 500:
+        raise ValueError("not a usable picture")
+    if full.width() * full.height() > MAX_PIXELS:
+        raise ValueError("picture too large")
+    # Enough pixels to cover the screen either way it's shown; only ever smaller, never bigger.
+    scale = min(1.0, max(size[0] / full.width(), size[1] / full.height()))
+    if scale < 1.0:
+        reader.setScaledSize(QSize(max(1, round(full.width() * scale)), max(1, round(full.height() * scale))))
+    image = reader.read()
+    if image.isNull():
         raise ValueError("not a usable picture")
     return image
 
@@ -376,7 +396,7 @@ class WallpaperWorker(QThread):
         random.shuffle(images)
         for url in images[:4]:
             try:
-                save_wallpaper(load_image(fetch(url)), target, self.size)
+                save_wallpaper(load_image(fetch(url), self.size), target, self.size)
                 return f"🔥 New art from r/{sub}!"
             # That picture failed: try the next one.
             except Exception:  # nosec B112
@@ -388,18 +408,18 @@ class WallpaperWorker(QThread):
         settings = QSettings("StoicDesktop", "StoicDesktop")
         recent = settings.value("recent_art") or []
         recent = [recent] if isinstance(recent, str) else list(recent)
-        url, title, artist = masterpiece(avoid=recent)
-        save_wallpaper(load_image(fetch(url)), target, self.size)
+        url, title, artist = masterpiece(avoid=recent, screen_width=self.size[0])
+        save_wallpaper(load_image(fetch(url), self.size), target, self.size)
         settings.setValue("recent_art", (recent + [title])[-10:])   # not again for the next 10
         return f"🏛️ {title}, {artist}"
 
     def from_museum(self, target):
         url, title = museum_image()
-        save_wallpaper(load_image(fetch(url)), target, self.size)
+        save_wallpaper(load_image(fetch(url), self.size), target, self.size)
         return f"🏛️ New art: {title[:60]}"
 
     def from_photo(self, target):
-        save_wallpaper(load_image(fetch("https://picsum.photos/1920/1080?grayscale")), target, self.size)
+        save_wallpaper(load_image(fetch("https://picsum.photos/1920/1080?grayscale"), self.size), target, self.size)
         return "🛡️ Fallback engaged."
 
     def run(self):
@@ -459,6 +479,7 @@ class StoicDesktop(QWidget):
         self.wp_timer.timeout.connect(self.wallpaper_if_due)
         self.wp_timer.start(3_600_000)
         QTimer.singleShot(3000, self.wallpaper_if_due)
+        QTimer.singleShot(15000, release_memory)   # start-up's one-off memory, handed back
 
     # -- position: wherever it was dragged last time, if that's still on a screen --
     def place(self):
@@ -547,6 +568,19 @@ class StoicDesktop(QWidget):
     def apply_wp(self, path):
         ctypes.windll.user32.SystemParametersInfoW(20, 0, path, 3)   # SPI_SETDESKWALLPAPER, kept after sign-out
         self.settings.setValue("last_wallpaper", time.time())
+        QTimer.singleShot(2000, release_memory)
+
+
+def release_memory():
+    """Give back the memory a wallpaper change borrowed, so the app idles small."""
+    gc.collect()
+    try:
+        kernel32, psapi = ctypes.WinDLL("kernel32"), ctypes.WinDLL("psapi")
+        kernel32.GetCurrentProcess.restype = ctypes.c_void_p   # a full-size handle, or the call misses
+        psapi.EmptyWorkingSet.argtypes = [ctypes.c_void_p]
+        psapi.EmptyWorkingSet(kernel32.GetCurrentProcess())
+    except (AttributeError, OSError):
+        pass
 
 
 def already_running():

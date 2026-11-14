@@ -50,6 +50,9 @@ you (Windows 10 or 11). Everything goes into your own user folder, so it needs n
 - **Made to fit your screen:** wide art fills it; a tall painting is shown whole over a dark, blurred
   copy of itself, instead of being cropped. Bright art is darkened more, so the quote always reads.
 - **A small notice** in the top-right corner while it finds and applies a new picture, then it disappears.
+- **Light on your PC:** it uses no CPU between changes and about 30 MB of memory. A wallpaper change
+  takes a fraction of a second: pictures are decoded straight at your screen's size, it downloads the
+  smallest copy that fills your screen, and it hands the memory back afterwards.
 - **Tidy:** it uses only two image files in your Windows Temp folder and reuses them.
 - **Only one copy runs**, however many times you open it.
 
