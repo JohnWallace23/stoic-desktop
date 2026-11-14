@@ -34,9 +34,10 @@ you (Windows 10 or 11). Everything goes into your own user folder, so it needs n
 
 ## Features
 
-- **110 quotes**, mostly Stoic philosophers like Marcus Aurelius, Seneca and Epictetus, plus voice
-  lines from Aatrox and Pantheon from League of Legends. You see every quote once before any repeat,
-  and never the same one twice in a row.
+- **210 quotes:** Stoic philosophers like Marcus Aurelius, Seneca and Epictetus; 100 from Warhammer
+  40,000 (Imperial Thoughts for the Day, Space Marine battle cries, Dawn of War, Gaunt's Ghosts and
+  more); and voice lines from Aatrox and Pantheon from League of Legends. You see every quote once
+  before any repeat, and never the same one twice in a row.
 - **The quote changes every minute.**
 - **The wallpaper changes every 24 hours,** half the time from each of these:
   - **Masterpieces:** 22 famous public-domain works about courage, struggle and endurance, in full
